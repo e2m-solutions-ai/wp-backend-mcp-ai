@@ -155,6 +155,18 @@ class WP_Backend_MCP_Bridge {
 			'permission_callback' => $perm,
 			'callback' => [ __CLASS__, 'php_eval' ],
 		] );
+
+		// ----- WP Abilities API bridge -----
+		register_rest_route( self::NS, '/abilities', [
+			'methods'  => 'GET',
+			'permission_callback' => $perm,
+			'callback' => [ __CLASS__, 'abilities_list' ],
+		] );
+		register_rest_route( self::NS, '/abilities/execute', [
+			'methods'  => 'POST',
+			'permission_callback' => $perm,
+			'callback' => [ __CLASS__, 'abilities_execute' ],
+		] );
 	}
 
 	// =========================================================================
@@ -710,6 +722,86 @@ class WP_Backend_MCP_Bridge {
 			ob_end_clean();
 			return new WP_Error( 'eval_error', $e->getMessage(), [ 'status' => 500 ] );
 		}
+	}
+
+	// =========================================================================
+	// WP Abilities API bridge
+	// =========================================================================
+
+	/**
+	 * Force-trigger the lazy `wp_abilities_api_init` action so plugin-registered
+	 * abilities (added via `add_action('wp_abilities_api_init', …)`) are present
+	 * in the registry before we read it. Without this, only abilities registered
+	 * by callbacks bound before our handler runs would be visible. Idempotent —
+	 * subsequent calls return the same singleton.
+	 */
+	private static function ensure_abilities_loaded() {
+		if ( class_exists( 'WP_Abilities_Registry' ) ) {
+			WP_Abilities_Registry::get_instance();
+		}
+	}
+
+	public static function abilities_list() {
+		if ( ! function_exists( 'wp_get_abilities' ) ) {
+			return new WP_Error( 'no_abilities_api', 'WP Abilities API not available on this WP version.', [ 'status' => 412 ] );
+		}
+
+		self::ensure_abilities_loaded();
+
+		$abilities = wp_get_abilities();
+		$cats      = function_exists( 'wp_get_ability_categories' ) ? wp_get_ability_categories() : [];
+
+		$out = [];
+		foreach ( $abilities as $a ) {
+			$out[] = [
+				'name'          => $a->get_name(),
+				'label'         => $a->get_label(),
+				'description'   => $a->get_description(),
+				'category'      => $a->get_category(),
+				'input_schema'  => $a->get_input_schema(),
+				'output_schema' => $a->get_output_schema(),
+				'meta'          => $a->get_meta(),
+			];
+		}
+
+		return [
+			'abilities'  => $out,
+			'categories' => array_map( function( $c ) {
+				return [
+					'slug'        => $c->get_slug(),
+					'label'       => $c->get_label(),
+					'description' => $c->get_description(),
+				];
+			}, $cats ),
+		];
+	}
+
+	public static function abilities_execute( $req ) {
+		if ( ! function_exists( 'wp_get_ability' ) ) {
+			return new WP_Error( 'no_abilities_api', 'WP Abilities API not available on this WP version.', [ 'status' => 412 ] );
+		}
+
+		self::ensure_abilities_loaded();
+
+		$name  = (string) $req->get_param( 'name' );
+		$input = $req->get_param( 'args' );
+		if ( '' === $name ) {
+			return new WP_Error( 'bad_input', 'name (ability identifier) required', [ 'status' => 400 ] );
+		}
+
+		$ability = wp_get_ability( $name );
+		if ( ! $ability ) {
+			return new WP_Error( 'no_ability', "Ability not registered: $name", [ 'status' => 404 ] );
+		}
+
+		$result = $ability->execute( $input );
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+		return [
+			'name'   => $name,
+			'output' => $result,
+		];
 	}
 }
 
