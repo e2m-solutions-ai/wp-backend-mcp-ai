@@ -94,6 +94,10 @@ const HANDLERS = {
   clear_transients: rest.clear_transients,
   run_php: rest.run_php,
 
+  // WP Abilities API
+  list_abilities: rest.list_abilities,
+  execute_ability: rest.execute_ability,
+
   // filesystem
   create_child_theme: fsh.create_child_theme,
   create_mu_plugin: fsh.create_mu_plugin,

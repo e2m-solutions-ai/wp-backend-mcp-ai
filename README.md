@@ -75,6 +75,8 @@ claude mcp list
 
 Tools become available to Claude as `mcp__wp-backend__discover_env`, `mcp__wp-backend__install_plugin`, etc.
 
+> **New here? Read [ONBOARDING.md](ONBOARDING.md) first — it walks through Local-by-Flywheel setup, WP nightly, AI plugin install, connector, abilities, mu-plugin install, `.env`, claude mcp add, verify, and smoke tests, in copy-pasteable steps. Then [CHANGELOG.md](CHANGELOG.md) for every bug fix bundled into the current version.**
+
 ## Smoke tests (no Claude needed)
 
 ```bash
