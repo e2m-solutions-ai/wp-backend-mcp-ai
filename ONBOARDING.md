@@ -128,19 +128,12 @@ After cloning, the layout looks like:
 
 ## Part 2 — Install the companion mu-plugin
 
-The repo ships a single PHP file at `mu-plugins/wp-backend-mcp.php`. Copy it into WordPress's `mu-plugins/`:
+The repo ships a single PHP file at `mu-plugins/wp-backend-mcp.php`. Copy it into WordPress's `mu-plugins/`: IF mu-plugins not exist then please create.
 
 ```bash
 # From inside the cloned repo:
 cp mu-plugins/wp-backend-mcp.php \
    "$HOME/Local Sites/<sitename>/app/public/wp-content/mu-plugins/wp-backend-mcp.php"
-```
-
-Concrete example for site `coreai`:
-
-```bash
-cp mu-plugins/wp-backend-mcp.php \
-   "$HOME/Local Sites/coreai/app/public/wp-content/mu-plugins/wp-backend-mcp.php"
 ```
 
 MU-plugins auto-load — no activation step. Verify by visiting **Plugins → Must-Use** in wp-admin; you should see "WP Backend MCP Bridge".
@@ -185,18 +178,7 @@ WP_BACKEND_MCP_KEY=<see Part 5>
 WP_INSECURE_TLS=1
 ```
 
-> **Wrap any value that contains a space in double quotes** — `WP_APP_PASSWORD` always has spaces, and `WP_ROOT` on Local-by-Flywheel does too (`Local Sites/<sitename>/…`). Node's dotenv parses unquoted values fine, but `source .env` (used in the smoke tests below) does NOT — unquoted spaces would cause errors like `command not found: <token>` or `no such file or directory: Sites/<sitename>/…`.
-
-Concrete example for site `coreai`:
-
-```
-WP_URL=http://coreai.local
-WP_USER=admin
-WP_APP_PASSWORD="ze4K dbHo 1LDs hMte FVlu 6mBq"
-WP_ROOT="/Users/yourname/Local Sites/coreai/app/public"
-WP_BACKEND_MCP_KEY=a3e9f1d7e8b24ea91c2e7d2b4f8a6c1
-```
-
+> **Wrap any value that contains a space in double quotes** — `WP_APP_PASSWORD` always has spaces, and `WP_ROOT` on Local-by-Flywheel does too (`Local Sites/<sitename>/…`). 
 ---
 
 ## Part 5 — Set the MCP shared secret
@@ -235,13 +217,6 @@ cd "$HOME/Local Sites/<sitename>"
 claude mcp add wp-backend node "$HOME/Local Sites/<sitename>/app/wp-backend-mcp/server.js"
 ```
 
-Concrete example for site `coreai`:
-
-```bash
-cd "$HOME/Local Sites/coreai"
-claude mcp add wp-backend node "$HOME/Local Sites/coreai/app/wp-backend-mcp/server.js"
-```
-
 **Then restart your Claude Code window** (close + reopen, or run "Developer: Reload Window" in VSCode). The MCP server list is read at session start; without a restart the new server stays invisible to Claude.
 
 ---
@@ -277,35 +252,19 @@ Run from the wp-backend-mcp folder so `.env` is loadable:
 cd "$HOME/Local Sites/<sitename>/app/wp-backend-mcp"
 set -a; source .env; set +a   # load env vars into your shell
 ```
-
-Concrete example for site `coreai`:
-
-```bash
-cd "$HOME/Local Sites/coreai/app/wp-backend-mcp"
-set -a; source .env; set +a
-```
-
-> **If `source .env` errors out** with `command not found: <token>` or `no such file or directory: <part-of-path>`, your `.env` has unquoted values containing spaces (typically `WP_APP_PASSWORD` or `WP_ROOT`). Two ways out:
->
-> 1. **Fix `.env`** — wrap each value containing a space in double quotes:
->    `WP_APP_PASSWORD="Bv5z j25H abMD …"` and `WP_ROOT="$HOME/Local Sites/<sitename>/app/public"`.
-> 2. **OR use this safer loader** that ignores shell parsing rules entirely (paste in place of `set -a; source .env; set +a`):
->
-> ```bash
-> while IFS='=' read -r key value; do
->   [ -z "$key" ] || [ "${key:0:1}" = "#" ] && continue
->   value="${value%\"}"; value="${value#\"}"   # strip surrounding double quotes if any
->   value="${value%\'}"; value="${value#\'}"   # strip surrounding single quotes if any
->   export "$key=$value"
-> done < .env
-> ```
+Quick (recommended for Local dev) — add -k to curl
+-k (a.k.a. --insecure) tells curl to skip cert verification. Safe for local dev sites.
 
 ### Test 1 — mu-plugin reachable + shared secret valid
 
 ```bash
-curl -s "$WP_URL/wp-json/wp-backend-mcp/v1/discover" \
-     -H "X-WP-MCP-Key: $WP_BACKEND_MCP_KEY" | python3 -m json.tool | head -20
+curl -i "$WP_URL/wp-json/wp-backend-mcp/v1/discover" \
+     -H "X-WP-MCP-Key: $WP_BACKEND_MCP_KEY" | head -40
 ```
+```bash ( Insecure )
+curl -ik "$WP_URL/wp-json/wp-backend-mcp/v1/discover" \
+     -H "X-WP-MCP-Key: $WP_BACKEND_MCP_KEY" | head -40
+```  
 
 Expected: JSON with `wp_version`, `active_theme`, etc. **NOT** `{"code":"forbidden"}` (that means key mismatch).
 
@@ -315,7 +274,10 @@ Expected: JSON with `wp_version`, `active_theme`, etc. **NOT** `{"code":"forbidd
 curl -s "$WP_URL/wp-json/wp/v2/users/me" \
      -u "$WP_USER:$(echo $WP_APP_PASSWORD | tr -d ' ')" | python3 -m json.tool | head -10
 ```
-
+```bash ( Insecure )
+curl -sk "$WP_URL/wp-json/wp/v2/users/me" \
+     -u "$WP_USER:$(echo $WP_APP_PASSWORD | tr -d ' ')" | python3 -m json.tool | head -10
+```  
 Expected: JSON with your user's `id`, `name`, `roles`. **NOT** `{"code":"rest_not_logged_in"}` (that means app password wrong).
 
 ### Test 3 — [AI profile only] Abilities visible
@@ -325,10 +287,12 @@ curl -s "$WP_URL/wp-json/wp-backend-mcp/v1/abilities" \
      -H "X-WP-MCP-Key: $WP_BACKEND_MCP_KEY" \
   | python3 -c "import json,sys; d=json.load(sys.stdin); print('Total:', len(d.get('abilities', []))); print('First 5:', [a['name'] for a in d.get('abilities', [])[:5]])"
 ```
+```bash ( Insecure )
+curl -sk "$WP_URL/wp-json/wp-backend-mcp/v1/abilities" \
+     -H "X-WP-MCP-Key: $WP_BACKEND_MCP_KEY" | python3 -c "import json,sys; d=json.load(sys.stdin); print('Total:', len(d.get('abilities', []))); print('First 5:', [a['name'] for a in d.get('abilities', [])[:5]])"
+```
 
 Expected: at least the 3 `core/*` abilities. If the AI plugin + abilities are enabled: also `ai/*` entries. If e2m-custom-abilities is active: `e2m/french-translation` too.
-
-All three tests passing = your install is wired correctly.
 
 ---
 
