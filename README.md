@@ -17,7 +17,7 @@ Where the existing `wordpress-mcp-server` covers only alt-text, this server cove
 ```
 
 - **Core REST** (`/wp/v2/*`) is hit with the WordPress **Application Password** in `Authorization: Basic ...` for things WP already exposes natively (posts, pages, media, users, taxonomies, plugin activate/deactivate, themes list).
-- **Custom REST** (`/wp-backend-mcp/v1/*`) — registered by the companion **MU-plugin** in `mu-plugin/wp-backend-mcp.php` — handles everything REST doesn't natively support: plugin install, ACF-based CPT/taxonomy/field-group registration, options, menus, search-replace, flush rewrites, transients, post meta, optional PHP eval.
+- **Custom REST** (`/wp-backend-mcp/v1/*`) — registered by the companion **MU-plugin** in `mu-plugins/wp-backend-mcp.php` — handles everything REST doesn't natively support: plugin install, ACF-based CPT/taxonomy/field-group registration, options, menus, search-replace, flush rewrites, transients, post meta, optional PHP eval.
 - **Filesystem tools** (`create_child_theme`, `create_mu_plugin`, `read_theme_file`, `write_theme_file`, `list_theme_files`) write directly under `WP_ROOT/wp-content/` — local installs only.
 
 ## One-time setup
@@ -46,7 +46,7 @@ For this project the values you already have are:
 ### 3. Drop the companion MU-plugin into WordPress
 
 ```bash
-cp mu-plugin/wp-backend-mcp.php "/Users/kajaldhameliya/Local Sites/coreai/app/public/wp-content/mu-plugins/"
+cp mu-plugins/wp-backend-mcp.php "/Users/kajaldhameliya/Local Sites/coreai/app/public/wp-content/mu-plugins/"
 ```
 
 (MU-plugins auto-load, no activation step.)
@@ -163,6 +163,6 @@ wp-backend-mcp/
 ├── handlers/
 │   ├── rest.js              # All REST-backed tool handlers
 │   └── fs.js                # All filesystem-backed tool handlers
-└── mu-plugin/
+└── mu-plugins/
     └── wp-backend-mcp.php   # Companion MU-plugin (drop into wp-content/mu-plugins/)
 ```

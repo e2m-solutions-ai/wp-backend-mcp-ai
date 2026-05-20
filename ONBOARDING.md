@@ -4,7 +4,7 @@ End-to-end setup for using `wp-backend-mcp` with [Claude Code](https://docs.clau
 
 This guide covers two profiles:
 
-- **Full profile** — WordPress nightly + WP AI Core + a connector + custom abilities. You get `mcp__wp-backend__execute_ability`, `list_abilities`, the e2m French-translation ability, auto-save hooks, etc.
+- **Full profile [AI profile]** — WordPress nightly + WP AI Core + a connector + custom abilities. You get `mcp__wp-backend__execute_ability`, `list_abilities`, the e2m French-translation ability, auto-save hooks, etc.
 - **Lite profile** — vanilla WordPress 6.5+, no AI plugins. You still get the 43 non-ability tools (CPT/ACF, plugins, themes, content, media, users, options, search-replace, child-theme + mu-plugin scaffolding, theme file r/w). Use this for projects where you only need backend automation.
 
 If you only need the lite profile, skip every step labelled **[AI profile only]**.
@@ -20,14 +20,12 @@ All examples assume a Local site named `<sitename>` on macOS. Substitute your ow
 | Local site root | `~/Local Sites/<sitename>/` |
 | WP install (contains `wp-config.php`) | `~/Local Sites/<sitename>/app/public/` |
 | `wp-content/plugins/` | `~/Local Sites/<sitename>/app/public/wp-content/plugins/` |
-| `wp-content/mu-plugins/` (plural!) | `~/Local Sites/<sitename>/app/public/wp-content/mu-plugins/` |
+| `wp-content/mu-plugins/` | `~/Local Sites/<sitename>/app/public/wp-content/mu-plugins/` |
 | Where you clone this repo | `~/Local Sites/<sitename>/app/wp-backend-mcp/` |
 | Your `.env` | `~/Local Sites/<sitename>/app/wp-backend-mcp/.env` |
 | `wp-config.php` | `~/Local Sites/<sitename>/app/public/wp-config.php` |
 | Project Claude assets | `~/Local Sites/<sitename>/.claude/` |
 | User-wide Claude assets | `~/.claude/` |
-
-> **Note:** the **repo** ships a folder called `mu-plugin/` (singular — it holds one file). The **WordPress folder** you copy that file *into* is `mu-plugins/` (plural). Don't typo it; the plural folder is the one WordPress auto-loads.
 
 > **Non-Local users:** any stack (MAMP, DDEV, plain LAMP, remote SSH) works. Wherever your WordPress install lives, that's `WP_ROOT`. The Node MCP server reads `.env` from its own folder; the mu-plugin lives in `<WP_ROOT>/wp-content/mu-plugins/`.
 
@@ -66,7 +64,7 @@ Then install these plugins (Plugins → Add New → search by slug):
 1. **AI** (slug: `ai`) — the WP AI Core, ships the Abilities API host
 2. **AI Provider for Anthropic** (slug: `ai-provider-for-anthropic`) **OR** **AI Provider for Google** (slug: `ai-provider-for-google`)
    - Anthropic is more reliable for the `ai/meta-description` ability — Google Gemini's free tier frequently hits the 30s cURL timeout on that endpoint
-3. **(Optional) E2M Custom Abilities** — drop the plugin folder under `~/Local Sites/<sitename>/app/public/wp-content/plugins/e2m-custom-abilities/` and activate it. Registers `e2m/french-translation` and adds save_post hooks for `team_member` and `project` CPTs that auto-populate Short Bio / SEO Description / French Text fields.
+3. **(Optional) E2M Custom Abilities** — drop the plugin folder under `~/Local Sites/<sitename>/app/public/wp-content/plugins/e2m-custom-abilities/` and activate it. Registers `e2m/french-translation` and adds save_post hooks for `team_member` and `project` CPTs that auto-populate Short Bio / SEO Description / French Text fields. Find the repo https://github.com/kajale2m/e2m-custom-ability here.
 
 ### [AI profile only] Connect a provider
 
@@ -89,7 +87,7 @@ In **Settings → AI → Features**, toggle on the abilities you'll use:
 
 Each toggle exposes that ability at `/wp-json/wp-abilities/v1/abilities/<name>/run` and to the MCP `execute_ability` tool.
 
-### Claude assets (agents + skills)
+### Claude assets (agents + skills) Find the repo here, https://github.com/kajale2m/wp-backend-claude/
 
 For Claude Code to behave as a WP backend specialist, drop the `wp-backend` agent and skill into one of:
 
@@ -111,19 +109,10 @@ cd wp-backend-mcp
 npm install
 ```
 
-Concrete example for site `coreai`:
-
-```bash
-cd "$HOME/Local Sites/coreai/app"
-git clone <REPO_URL> wp-backend-mcp
-cd wp-backend-mcp
-npm install
-```
-
 After cloning, the layout looks like:
 
 ```
-~/Local Sites/coreai/
+~/Local Sites/<sitename>/
 ├── app/
 │   ├── public/                       # WordPress install
 │   │   └── wp-content/
@@ -139,18 +128,18 @@ After cloning, the layout looks like:
 
 ## Part 2 — Install the companion mu-plugin
 
-The repo ships a single PHP file at `mu-plugin/wp-backend-mcp.php`. Copy it into WordPress's `mu-plugins/` (PLURAL):
+The repo ships a single PHP file at `mu-plugins/wp-backend-mcp.php`. Copy it into WordPress's `mu-plugins/`:
 
 ```bash
 # From inside the cloned repo:
-cp mu-plugin/wp-backend-mcp.php \
+cp mu-plugins/wp-backend-mcp.php \
    "$HOME/Local Sites/<sitename>/app/public/wp-content/mu-plugins/wp-backend-mcp.php"
 ```
 
 Concrete example for site `coreai`:
 
 ```bash
-cp mu-plugin/wp-backend-mcp.php \
+cp mu-plugins/wp-backend-mcp.php \
    "$HOME/Local Sites/coreai/app/public/wp-content/mu-plugins/wp-backend-mcp.php"
 ```
 
@@ -187,8 +176,8 @@ Open `.env` and fill in:
 ```
 WP_URL=http://<sitename>.local
 WP_USER=<your wp-admin username>
-WP_APP_PASSWORD=<paste from Part 3, KEEP the spaces>
-WP_ROOT=$HOME/Local Sites/<sitename>/app/public
+WP_APP_PASSWORD="<paste from Part 3, KEEP the spaces>"
+WP_ROOT="$HOME/Local Sites/<sitename>/app/public"
 WP_BACKEND_MCP_KEY=<see Part 5>
 
 # Optional — only set when WP_URL uses https:// (Local sometimes auto-enables SSL).
@@ -196,13 +185,15 @@ WP_BACKEND_MCP_KEY=<see Part 5>
 WP_INSECURE_TLS=1
 ```
 
+> **Wrap any value that contains a space in double quotes** — `WP_APP_PASSWORD` always has spaces, and `WP_ROOT` on Local-by-Flywheel does too (`Local Sites/<sitename>/…`). Node's dotenv parses unquoted values fine, but `source .env` (used in the smoke tests below) does NOT — unquoted spaces would cause errors like `command not found: <token>` or `no such file or directory: Sites/<sitename>/…`.
+
 Concrete example for site `coreai`:
 
 ```
 WP_URL=http://coreai.local
 WP_USER=admin
-WP_APP_PASSWORD=ze4K dbHo 1LDs hMte FVlu 6mBq
-WP_ROOT=/Users/yourname/Local Sites/coreai/app/public
+WP_APP_PASSWORD="ze4K dbHo 1LDs hMte FVlu 6mBq"
+WP_ROOT="/Users/yourname/Local Sites/coreai/app/public"
 WP_BACKEND_MCP_KEY=a3e9f1d7e8b24ea91c2e7d2b4f8a6c1
 ```
 
@@ -294,6 +285,21 @@ cd "$HOME/Local Sites/coreai/app/wp-backend-mcp"
 set -a; source .env; set +a
 ```
 
+> **If `source .env` errors out** with `command not found: <token>` or `no such file or directory: <part-of-path>`, your `.env` has unquoted values containing spaces (typically `WP_APP_PASSWORD` or `WP_ROOT`). Two ways out:
+>
+> 1. **Fix `.env`** — wrap each value containing a space in double quotes:
+>    `WP_APP_PASSWORD="Bv5z j25H abMD …"` and `WP_ROOT="$HOME/Local Sites/<sitename>/app/public"`.
+> 2. **OR use this safer loader** that ignores shell parsing rules entirely (paste in place of `set -a; source .env; set +a`):
+>
+> ```bash
+> while IFS='=' read -r key value; do
+>   [ -z "$key" ] || [ "${key:0:1}" = "#" ] && continue
+>   value="${value%\"}"; value="${value#\"}"   # strip surrounding double quotes if any
+>   value="${value%\'}"; value="${value#\'}"   # strip surrounding single quotes if any
+>   export "$key=$value"
+> done < .env
+> ```
+
 ### Test 1 — mu-plugin reachable + shared secret valid
 
 ```bash
@@ -345,7 +351,7 @@ Claude will route through tools like `mcp__wp-backend__install_plugin`, `registe
 
 - **`.env` is per-developer and per-project.** Never commit it. Each dev runs through Parts 3–4 themselves.
 - **`WP_BACKEND_MCP_KEY` is per-project, shared.** Same value goes in everyone's `.env` and in `wp-config.php`. Store it in your team password manager.
-- **`mu-plugin/wp-backend-mcp.php` belongs in the WP project's repo** under `wp-content/mu-plugins/`. New devs cloning the WP repo get it for free.
+- **`mu-plugins/wp-backend-mcp.php` belongs in the WP project's repo** under `wp-content/mu-plugins/`. New devs cloning the WP repo get it for free.
 - **Application Passwords are personal.** Don't share them.
 
 ---
@@ -376,6 +382,8 @@ Destructive deletes (`delete_plugin`, `delete_post`, `delete_user`, `delete_medi
 | `execute_ability` returns `Service Unavailable (503)` or `cURL error 28: Operation timed out` for `ai/meta-description` | Upstream AI provider is slow/overloaded (we've seen this consistently with Gemini's free tier — 30s cURL ceiling inside the WP AI Client). Retry, or switch to Anthropic in **Settings → AI → Connectors**. |
 | `ability_invalid_input` with "input is not of type object" | Your `wp-backend-mcp` repo is older than the args-shape fix. `git pull` to get the latest, then restart Claude Code. |
 | Server doesn't load `.env` | `.env` must be in the same folder as `server.js` (the Node server reads relative to its own path, not the CWD). |
+| `source .env` errors with `command not found: <token>` | A value containing spaces (typically `WP_APP_PASSWORD` or `WP_ROOT`) isn't quoted. Wrap it in double quotes: `WP_APP_PASSWORD="xxxx xxxx xxxx …"`. Node's dotenv tolerates unquoted spaces but shell `source` does not. See the safer loader in Part 8. |
+| `source .env` errors with `no such file or directory: Sites/<sitename>/…` | Same root cause as the row above — `WP_ROOT` is unquoted and a Local-by-Flywheel path contains a space (`Local Sites/…`). Quote the value: `WP_ROOT="/Users/…/Local Sites/<sitename>/app/public"`. |
 
 ---
 

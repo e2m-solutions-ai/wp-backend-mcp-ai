@@ -8,6 +8,31 @@ The repo is ready to push to any Git host. Every fix below is in the commit hist
 
 ## Session 2026-05 — Stabilization pass
 
+### `.env` quoting + `mu-plugin/` → `mu-plugins/` folder rename
+
+**Bug.** A teammate setting up a fresh project (`mcptest1`) hit smoke-test failures:
+
+```
+.env:14: command not found: j25H
+.env:18: no such file or directory: Sites/mcptest1/app/public
+```
+
+…followed by all three `curl` smoke tests returning empty bodies (because no env vars had been loaded).
+
+**Root cause.** `WP_APP_PASSWORD` and `WP_ROOT` routinely contain spaces (the WordPress-issued app password is `xxxx xxxx xxxx xxxx xxxx xxxx`, and Local-by-Flywheel paths contain `Local Sites/`). The `.env.example` we shipped had those values unquoted. Node's `dotenv` parses them fine; bash `source .env` does NOT — unquoted spaces split a `KEY=val1 val2` line into "set KEY=val1, then exec val2 as a command".
+
+**Fix.**
+- `.env.example` — wrap `WP_APP_PASSWORD` and `WP_ROOT` placeholders in double quotes, with a header comment explaining why.
+- `ONBOARDING.md` Part 4 — show the quoted form in both the template and the concrete `coreai` example, with a callout box.
+- `ONBOARDING.md` Part 8 — keep the convenient `set -a; source .env; set +a` as the primary loader, AND show a safer line-by-line loader (`while IFS='=' read -r key value …`) for users whose `.env` is already filled in unquoted.
+- `ONBOARDING.md` Troubleshooting — two new rows mapping the exact error messages to the fix.
+
+**Bonus tidy-up.** Renamed the repo's `mu-plugin/` folder (singular) to `mu-plugins/` (plural) to match WordPress's actual `wp-content/mu-plugins/` destination. Eliminates the common singular-vs-plural typo source (it confused a teammate during onboarding). Path references in README, ONBOARDING, and CHANGELOG updated.
+
+Files: `.env.example`, `ONBOARDING.md`, `README.md`, `CHANGELOG.md`, `mu-plugins/wp-backend-mcp.php` (renamed from `mu-plugin/`).
+
+---
+
 ### `c6ccdf6` — ONBOARDING: rewrite as full end-to-end guide (AI + lite profiles)
 
 The original ONBOARDING.md was a thin 15-minute walkthrough. Replaced with a 600-line guide that covers:
