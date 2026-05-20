@@ -799,6 +799,15 @@ class WP_Backend_MCP_Bridge {
 				$input = $body['input'] ?? ( $body['args'] ?? null );
 			}
 		}
+		// Some MCP clients JSON-encode the args payload (when the tool schema
+		// doesn't declare a type, the SDK falls back to serializing it as a
+		// string). Detect and decode so the ability sees a real object.
+		if ( is_string( $input ) ) {
+			$decoded = json_decode( $input, true );
+			if ( is_array( $decoded ) ) {
+				$input = $decoded;
+			}
+		}
 
 		if ( '' === $name ) {
 			return new WP_Error( 'bad_input', 'name (ability identifier) required', [ 'status' => 400 ] );
