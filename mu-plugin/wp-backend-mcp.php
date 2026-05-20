@@ -783,8 +783,23 @@ class WP_Backend_MCP_Bridge {
 
 		self::ensure_abilities_loaded();
 
-		$name  = (string) $req->get_param( 'name' );
-		$input = $req->get_param( 'args' );
+		$name = (string) $req->get_param( 'name' );
+
+		// `args` is a reserved param name in WP REST (consumed by route schema
+		// declarations) and may not survive the request lifecycle intact. Prefer
+		// `input`; fall back to `args` for old callers; finally, fall back to the
+		// raw JSON body which carries the unmolested value.
+		$input = $req->get_param( 'input' );
+		if ( null === $input ) {
+			$input = $req->get_param( 'args' );
+		}
+		if ( null === $input ) {
+			$body = json_decode( $req->get_body(), true );
+			if ( is_array( $body ) ) {
+				$input = $body['input'] ?? ( $body['args'] ?? null );
+			}
+		}
+
 		if ( '' === $name ) {
 			return new WP_Error( 'bad_input', 'name (ability identifier) required', [ 'status' => 400 ] );
 		}

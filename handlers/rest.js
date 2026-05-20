@@ -182,3 +182,14 @@ export async function clear_transients() {
 export async function run_php({ code }) {
   return await mcpRequest('POST', '/wp-backend-mcp/v1/eval', { data: { code } });
 }
+
+// ─────────────── WP Abilities API ───────────────
+export async function list_abilities() {
+  return await mcpRequest('GET', '/wp-backend-mcp/v1/abilities');
+}
+export async function execute_ability({ name, args }) {
+  // Send under `input` rather than `args` — `args` is a reserved param name in
+  // WP REST (consumed by register_rest_route for schema declarations) and gets
+  // shadowed, so the value never reaches the handler intact.
+  return await mcpRequest('POST', '/wp-backend-mcp/v1/abilities/execute', { data: { name, input: args } });
+}
