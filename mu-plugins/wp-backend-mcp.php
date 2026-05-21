@@ -29,6 +29,23 @@ class WP_Backend_MCP_Bridge {
 		return true;
 	}
 
+	/**
+	 * Decode a value that may have arrived as a JSON-encoded string.
+	 *
+	 * The MCP SDK serializes object/array tool arguments to strings when the
+	 * tool schema doesn't declare a concrete type (e.g. `value: {}`). Without
+	 * this, callers that pass arrays/objects for `value`/`args` end up writing
+	 * literal JSON strings into wp_options / postmeta / ACF, and consumers
+	 * that expect a PHP array silently fall back to defaults.
+	 */
+	private static function maybe_json_decode( $v ) {
+		if ( ! is_string( $v ) ) { return $v; }
+		$t = ltrim( $v );
+		if ( $t === '' || ( $t[0] !== '{' && $t[0] !== '[' ) ) { return $v; }
+		$decoded = json_decode( $v, true );
+		return ( JSON_ERROR_NONE === json_last_error() && ( is_array( $decoded ) || is_object( $decoded ) ) ) ? $decoded : $v;
+	}
+
 	public static function register_routes() {
 
 		$perm = [ __CLASS__, 'permission' ];
@@ -351,8 +368,8 @@ class WP_Backend_MCP_Bridge {
 		$err = self::require_acf(); if ( is_wp_error( $err ) ) { return $err; }
 
 		$key = sanitize_key( $req->get_param( 'key' ) );
-		$labels = (array) $req->get_param( 'labels' );
-		$args   = (array) $req->get_param( 'args' );
+		$labels = (array) self::maybe_json_decode( $req->get_param( 'labels' ) );
+		$args   = (array) self::maybe_json_decode( $req->get_param( 'args' ) );
 		if ( ! $key ) { return new WP_Error( 'bad_key', 'key (post type slug) required', [ 'status' => 400 ] ); }
 
 		$singular = $labels['singular'] ?? ucfirst( str_replace( '_', ' ', $key ) );
@@ -396,9 +413,9 @@ class WP_Backend_MCP_Bridge {
 		$err = self::require_acf(); if ( is_wp_error( $err ) ) { return $err; }
 
 		$key         = sanitize_key( $req->get_param( 'key' ) );
-		$object_type = (array) $req->get_param( 'object_type' );
-		$labels      = (array) $req->get_param( 'labels' );
-		$args        = (array) $req->get_param( 'args' );
+		$object_type = (array) self::maybe_json_decode( $req->get_param( 'object_type' ) );
+		$labels      = (array) self::maybe_json_decode( $req->get_param( 'labels' ) );
+		$args        = (array) self::maybe_json_decode( $req->get_param( 'args' ) );
 		if ( ! $key ) { return new WP_Error( 'bad_key', 'key (taxonomy slug) required', [ 'status' => 400 ] ); }
 		if ( ! $object_type ) { return new WP_Error( 'bad_obj', 'object_type (array of post type slugs) required', [ 'status' => 400 ] ); }
 
@@ -438,8 +455,8 @@ class WP_Backend_MCP_Bridge {
 		$err = self::require_acf(); if ( is_wp_error( $err ) ) { return $err; }
 
 		$title    = sanitize_text_field( $req->get_param( 'title' ) );
-		$location = $req->get_param( 'location' );
-		$fields   = (array) $req->get_param( 'fields' );
+		$location = self::maybe_json_decode( $req->get_param( 'location' ) );
+		$fields   = (array) self::maybe_json_decode( $req->get_param( 'fields' ) );
 		if ( ! $title || empty( $location ) ) {
 			return new WP_Error( 'bad_input', 'title and location required', [ 'status' => 400 ] );
 		}
@@ -500,7 +517,7 @@ class WP_Backend_MCP_Bridge {
 		$group_key = sanitize_text_field( $req->get_param( 'group_key' ) );
 		$name      = sanitize_key( $req->get_param( 'name' ) );
 		$type      = sanitize_key( $req->get_param( 'type' ) ?: 'text' );
-		$extra     = (array) ( $req->get_param( 'extra' ) ?: [] );
+		$extra     = (array) ( self::maybe_json_decode( $req->get_param( 'extra' ) ) ?: [] );
 		if ( ! $group_key || ! $name ) {
 			return new WP_Error( 'bad_input', 'group_key and name required', [ 'status' => 400 ] );
 		}
@@ -550,7 +567,7 @@ class WP_Backend_MCP_Bridge {
 		}
 		$post_id   = absint( $req->get_param( 'post_id' ) );
 		$selector  = sanitize_text_field( $req->get_param( 'selector' ) ); // field name or field_xxx key
-		$value     = $req->get_param( 'value' );
+		$value     = self::maybe_json_decode( $req->get_param( 'value' ) );
 		if ( ! $post_id || ! $selector ) {
 			return new WP_Error( 'bad_input', 'post_id and selector required', [ 'status' => 400 ] );
 		}
@@ -570,7 +587,7 @@ class WP_Backend_MCP_Bridge {
 
 	public static function opt_update( $req ) {
 		$name  = sanitize_text_field( $req->get_param( 'name' ) );
-		$value = $req->get_param( 'value' );
+		$value = self::maybe_json_decode( $req->get_param( 'value' ) );
 		$autoload = $req->get_param( 'autoload' );
 		if ( ! $name ) { return new WP_Error( 'bad_name', 'name required', [ 'status' => 400 ] ); }
 		// Guard against touching critical options without an explicit flag.
@@ -697,7 +714,7 @@ class WP_Backend_MCP_Bridge {
 	public static function meta_set( $req ) {
 		$post_id = absint( $req->get_param( 'post_id' ) );
 		$key     = sanitize_text_field( $req->get_param( 'key' ) );
-		$value   = $req->get_param( 'value' );
+		$value   = self::maybe_json_decode( $req->get_param( 'value' ) );
 		if ( ! $post_id || ! $key ) { return new WP_Error( 'bad', 'post_id and key required', [ 'status' => 400 ] ); }
 		$ok = update_post_meta( $post_id, $key, $value );
 		return [ 'updated' => (bool) $ok, 'post_id' => $post_id, 'key' => $key ];
