@@ -289,7 +289,9 @@ curl -s "$WP_URL/wp-json/wp-backend-mcp/v1/abilities" \
   | python3 -c "import json,sys; d=json.load(sys.stdin); print('Total:', len(d.get('abilities', []))); print('First 5:', [a['name'] for a in d.get('abilities', [])[:5]])"
 ```
 ```bash ( Insecure )
-curl -sk "$WP_URL/wp-json/wp-backend-mcp/v1/abilities" -H "X-WP-MCP-Key: $WP_BACKEND_MCP_KEY" | python3 -c "import json,sys; d=json.load(sys.stdin); print('Total:', len(d.get('abilities', []))); print('First 5:', [a['name'] for a in d.get('abilities', [])[:5]])"
+curl -sk "$WP_URL/wp-json/wp-backend-mcp/v1/abilities" \
+     -H "X-WP-MCP-Key: $WP_BACKEND_MCP_KEY" \
+   | python3 -c "import json,sys; d=json.load(sys.stdin); print('Total:', len(d.get('abilities', []))); print('First 5:', [a['name'] for a in d.get('abilities', [])[:5]])"
 ```
 
 Expected: at least the 3 `core/*` abilities. If the AI plugin + abilities are enabled: also `ai/*` entries. If e2m-custom-abilities is active: `e2m/french-translation` too.
