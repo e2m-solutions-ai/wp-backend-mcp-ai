@@ -63,8 +63,9 @@ Then install these plugins (Plugins → Add New → search by slug):
 
 1. **AI** (slug: `ai`) — the WP AI Core, ships the Abilities API host
 2. **AI Provider for Anthropic** (slug: `ai-provider-for-anthropic`) **OR** **AI Provider for Google** (slug: `ai-provider-for-google`)
-   - Anthropic is more reliable for the `ai/meta-description` ability — Google Gemini's free tier frequently hits the 30s cURL timeout on that endpoint
-3. **(Optional) E2M Custom Abilities** — drop the plugin folder under `~/Local Sites/<sitename>/app/public/wp-content/plugins/e2m-custom-abilities/` and activate it. Registers `e2m/french-translation` and adds save_post hooks for `team_member` and `project` CPTs that auto-populate Short Bio / SEO Description / French Text fields. Find the repo https://github.com/kajale2m/e2m-custom-ability here.
+   - Activate **only one** provider plugin per site. With multiple active, the AI client auto-selects one — and if its key is empty/depleted, every ability call fails (Anthropic returns `400 credit balance too low`; Gemini returns `400 API key not valid`). To switch providers, deactivate the old plugin first.
+   - **Heads-up about Gemini models**: the AI plugin's default preferred model is `gemini-3-flash-preview`, which is **unstable** — `ai/meta-description` in particular times out at the 30s cURL ceiling. If you must use Gemini, pin each affected feature to `gemini-2.5-flash` (see "Pinning a stable model" in Troubleshooting).
+3. **(Optional) E2M Custom Abilities** — drop the plugin folder under `~/Local Sites/<sitename>/app/public/wp-content/plugins/e2m-custom-abilities/` and activate it. Registers `e2m/french-translation` and adds save_post hooks for `team_member` and `project` CPTs that auto-populate Short Bio / SEO Description / French Text fields.
 
 ### [AI profile only] Connect a provider
 
@@ -343,11 +344,43 @@ Destructive deletes (`delete_plugin`, `delete_post`, `delete_user`, `delete_medi
 | `Theme folder not found` from filesystem tools | `WP_ROOT` doesn't point at the folder containing `wp-config.php`. |
 | ACF tools return `412 no_acf` | ACF plugin isn't active. Run `install_plugin {slug:"advanced-custom-fields", activate:true}` first. |
 | `execute_ability` returns `no_ability` | The named ability isn't registered on this site. Run `list_abilities` to see what's actually available. AI abilities require the AI plugin + a configured connector. |
-| `execute_ability` returns `Service Unavailable (503)` or `cURL error 28: Operation timed out` for `ai/meta-description` | Upstream AI provider is slow/overloaded (we've seen this consistently with Gemini's free tier — 30s cURL ceiling inside the WP AI Client). Retry, or switch to Anthropic in **Settings → AI → Connectors**. |
+| `execute_ability` returns `Service Unavailable (503)` or `cURL error 28: Operation timed out` for `ai/meta-description` | Almost always a bad model pick: the WP AI plugin's default preferred model is `gemini-3-flash-preview`, which is unreliable. Pin the feature to `gemini-2.5-flash` — see "Pinning a stable model" below. |
+| `execute_ability` returns `400 Your credit balance is too low to access the Anthropic API` | The AI client routed to Anthropic, but that key has no credits. If you intended to use a different provider, deactivate `ai-provider-for-anthropic/plugin.php` (or clear the `connectors_ai_anthropic_api_key` option). Multiple active provider plugins → auto-select picks one — there's no "current provider" UI. |
+| `execute_ability` returns `429 Quota exceeded ... free_tier_requests` | Gemini free tier is 20 RPM. Wait ~60s with **no** API traffic for the rolling window to clear; retries inside the window keep extending it. |
 | `ability_invalid_input` with "input is not of type object" | Your `wp-backend-mcp` repo is older than the args-shape fix. `git pull` to get the latest, then restart Claude Code. |
 | Server doesn't load `.env` | `.env` must be in the same folder as `server.js` (the Node server reads relative to its own path, not the CWD). |
-| `source .env` errors with `command not found: <token>` | A value containing spaces (typically `WP_APP_PASSWORD` or `WP_ROOT`) isn't quoted. Wrap it in double quotes: `WP_APP_PASSWORD="xxxx xxxx xxxx …"`. Node's dotenv tolerates unquoted spaces but shell `source` does not. See the safer loader in Part 8. |
-| `source .env` errors with `no such file or directory: Sites/<sitename>/…` | Same root cause as the row above — `WP_ROOT` is unquoted and a Local-by-Flywheel path contains a space (`Local Sites/…`). Quote the value: `WP_ROOT="/Users/…/Local Sites/<sitename>/app/public"`. |
+
+---
+
+### Pinning a stable model for an unreliable AI feature
+
+When `ai/meta-description` (or any other AI feature) times out repeatedly on Gemini's preview models, override the model per-feature with the AI plugin's developer-mode option:
+
+```bash
+# Replace <feature-id> with the ability's feature id (e.g. meta-description, excerpt-generation, title-generation)
+cd "$HOME/Local Sites/<sitename>/app/wp-backend-mcp"
+set -a; source .env; set +a
+curl -sk "$WP_URL/wp-json/wp-backend-mcp/v1/options/update" \
+  -H "X-WP-MCP-Key: $WP_BACKEND_MCP_KEY" \
+  -u "$WP_USER:$(echo $WP_APP_PASSWORD | tr -d ' ')" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"wpai_feature_meta-description_field_developer","value":{"provider":"google","model":"gemini-2.5-flash"}}'
+```
+
+Or, from Claude Code: `mcp__wp-backend__update_option { name: 'wpai_feature_meta-description_field_developer', value: { provider: 'google', model: 'gemini-2.5-flash' } }`. The option must be stored as a PHP array; `update_option` in this MU-plugin does the necessary JSON→array conversion automatically (it didn't in versions before this fix — if you see a string `{"provider":...}` saved instead of `a:2:{...}` in `wp_options`, your mu-plugin is stale; re-copy from the repo).
+
+---
+
+## Updating the MU-plugin after `git pull`
+
+Pulling a new version of this repo updates `mu-plugin/wp-backend-mcp.php` in the repo, **but not** the deployed copy under `wp-content/mu-plugins/`. After every pull that touches the mu-plugin, re-copy:
+
+```bash
+cp "$HOME/Local Sites/<sitename>/app/wp-backend-mcp/mu-plugin/wp-backend-mcp.php" \
+   "$HOME/Local Sites/<sitename>/app/public/wp-content/mu-plugins/wp-backend-mcp.php"
+```
+
+If your team commits the deployed copy into the WP repo (recommended), this becomes a `git pull` in the WP repo instead and nobody has to remember a manual copy.
 
 ---
 
