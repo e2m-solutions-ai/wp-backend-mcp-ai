@@ -15,7 +15,7 @@ So the protocol is just **standardized plumbing for tool discovery and invocatio
 ┌──────────────────────┐  JSON-RPC over stdio  ┌──────────────────────┐    HTTPS    ┌───────────────────────┐
 │ Claude Code (host)   │ ────────────────────► │ Node MCP server      │ ──────────► │  WordPress            │
 │                      │                       │  (server.js)         │             │  (wp-config + plugins)│
-│ "register a Post     │ ◄──────────────────── │  47 tool dispatch    │ ◄────────── │   /wp-json/wp/v2/*    │
+│ "register a Post     │ ◄──────────────────── │  48 tool dispatch    │ ◄────────── │   /wp-json/wp/v2/*    │
 │  Type called Service"│                       │  + axios + dotenv    │             │   /wp-json/wp-backend-│
 └──────────────────────┘                       └──────────────────────┘             │     mcp/v1/*          │
                                                                                     └───────────────────────┘
@@ -54,7 +54,6 @@ wp-backend-mcp/
 ├── .env.example
 ├── README.md
 ├── ONBOARDING.md            # end-to-end team setup walkthrough
-├── CHANGELOG.md             # every bug + fix bundled into this version
 ├── server.js                # MCP entrypoint + dispatcher
 ├── lib/
 │   ├── tools.js             # Tool schemas (the surface Claude sees)
@@ -102,7 +101,7 @@ Two reasons this file is centralized:
 - The descriptions are what Claude reads to decide whether to use a tool. Good descriptions = right tool gets chosen.
 - The JSON-Schema is enforced by the MCP SDK before your handler ever runs — so by the time `handlers/rest.js` gets called, it can trust the args shape.
 
-(The `args` having `type: 'object'` here is the same fix called out in CHANGELOG — without it, some MCP SDKs string-serialize objects.)
+(The `args` having `type: 'object'` here matters — without it, some MCP SDKs string-serialize objects.)
 
 #### `lib/wp.js` — HTTP clients
 
@@ -146,7 +145,7 @@ export async function execute_ability({ name, args }) {
 }
 ```
 
-(Note `input: args` — the workaround for WP REST shadowing the reserved `args` param name. Documented in CHANGELOG.)
+(Note `input: args` — the workaround for WP REST shadowing the reserved `args` param name.)
 
 #### `handlers/fs.js` — filesystem-backed tool implementations
 
@@ -179,7 +178,7 @@ Notable functions inside the `WP_Backend_MCP_Bridge` class:
 | `permission( $request )` | Compares the `X-WP-MCP-Key` header against `WP_BACKEND_MCP_KEY` using `hash_equals` (constant-time). |
 | `discover()` | Returns WP version, active theme, plugin list, post types — Claude's "tell me about this site" call. |
 | `plugin_install()` | Uses `Plugin_Upgrader` to install from WordPress.org. The only sane way to add plugins programmatically. |
-| `acf_register_cpt()` | Calls `acf_update_internal_post_type()` with the right payload. Includes the title-field fix from CHANGELOG. |
+| `acf_register_cpt()` | Calls `acf_update_internal_post_type()` with the right payload, including the title-field fix. |
 | `acf_create_field_group()` | Calls `acf_update_field_group()`, then resolves the group key to its numeric ID before saving each field (the parent-ID fix). |
 | `acf_update_value()` | Wraps ACF's `update_field()` — writes both the value and the underscore-key pointer row. |
 | `abilities_list()` | Triggers `WP_Abilities_Registry::get_instance()` (lazy-init fix), then returns everything from `wp_get_abilities()`. |
@@ -187,9 +186,9 @@ Notable functions inside the `WP_Backend_MCP_Bridge` class:
 | `sr()` (search-replace) | Defaults to dry-run; refuses `wp_users`/`wp_usermeta`. |
 | `php_eval()` | Runs arbitrary PHP — **only** if `WP_BACKEND_MCP_ALLOW_EVAL` is true in `wp-config.php`. Off by default. |
 
-**New here? Read [ONBOARDING.md](ONBOARDING.md) first — it walks through Local-by-Flywheel setup, WP nightly, AI plugin install, connector, abilities, mu-plugin install, `.env`, claude mcp add, verify, and smoke tests, in copy-pasteable steps. Then [CHANGELOG.md](CHANGELOG.md) for every bug fix bundled into the current version.**
+**New here? Read [ONBOARDING.md](ONBOARDING.md) first — it walks through Local-by-Flywheel setup, the WordPress 7 + PHP 8 baseline, AI plugin install, connector, abilities, mu-plugin install, `.env`, claude mcp add, verify, and smoke tests, in copy-pasteable steps.**
 
-## Tool catalogue (45 tools)
+## Tool catalogue (48 tools)
 
 | Group        | Tool names |
 |--------------|-----------|
@@ -204,6 +203,7 @@ Notable functions inside the `WP_Backend_MCP_Bridge` class:
 | Menus        | `list_menus`, `create_menu`, `assign_menu_location` |
 | Users        | `list_users`, `create_user`, `update_user`, `delete_user` |
 | Maintenance  | `search_replace`, `flush_rewrite_rules`, `clear_transients`, `run_php` |
+| Abilities    | `list_abilities`, `execute_ability` |
 | Filesystem   | `create_child_theme`, `create_mu_plugin`, `read_theme_file`, `write_theme_file`, `list_theme_files` |
 
 

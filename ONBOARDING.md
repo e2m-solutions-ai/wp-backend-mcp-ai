@@ -4,8 +4,8 @@ End-to-end setup for using `wp-backend-mcp` with [Claude Code](https://docs.clau
 
 This guide covers two profiles:
 
-- **Full profile [AI profile]** — WordPress nightly + WP AI Core + a connector + custom abilities. You get `mcp__wp-backend__execute_ability`, `list_abilities`, the e2m French-translation ability, auto-save hooks, etc.
-- **Lite profile** — vanilla WordPress 6.5+, no AI plugins. You still get the 43 non-ability tools (CPT/ACF, plugins, themes, content, media, users, options, search-replace, child-theme + mu-plugin scaffolding, theme file r/w). Use this for projects where you only need backend automation.
+- **Full profile [AI profile]** — WordPress 7+ (ships the Abilities API in stable, no nightly needed) + the WP AI Core plugin + a connector + custom abilities. You get `mcp__wp-backend__execute_ability`, `list_abilities`, the e2m French-translation ability, auto-save hooks, etc.
+- **Lite profile** — vanilla WordPress 6.5+, no AI plugins. You still get the 46 non-ability tools (CPT/ACF, plugins, themes, content, media, users, options, search-replace, child-theme + mu-plugin scaffolding, theme file r/w). Use this for projects where you only need backend automation.
 
 If you only need the lite profile, skip every step labelled **[AI profile only]**.
 
@@ -36,6 +36,7 @@ All examples assume a Local site named `<sitename>` on macOS. Substitute your ow
 ### System tools (all profiles)
 
 - **Node.js 18 or newer** — `node -v` to confirm
+- **PHP 8.0 or newer** — required by WordPress 7 / the AI plugin; `php -v` to confirm (set the site's PHP version in Local if it's older)
 - **Local-by-Flywheel** (or your local stack of choice)
 - **Claude Code** — `claude --version`
 - **Git** — to clone this repo
@@ -50,14 +51,14 @@ You need a working WordPress install with:
 
 ### [AI profile only] WordPress version & plugins
 
-The WP Abilities API ships in **WordPress 6.9** and isn't in the stable 6.8 release yet. For now you need a nightly:
+The WP Abilities API now ships in **stable WordPress 7** — no nightly or Beta Tester channel required anymore. Just update WordPress normally:
 
-```bash
-# From Local: right-click your site → Open Site Shell, then:
-wp core update --version=nightly --force
-```
+- **Dashboard → Updates → Update to 7.x**, or
+- From Local (right-click your site → Open Site Shell): `wp core update`
 
-Easier alternative if you don't want WP-CLI: install the **WordPress Beta Tester** plugin from the directory, switch the channel to "Bleeding edge" (or "Beta/RC"), then **Dashboard → Updates → Update to <nightly>**.
+**PHP 8.0 or newer is required** for WordPress 7 and the AI plugin. In Local, set the site's PHP version under the site's **Tools / settings → PHP version** (pick 8.1+ for the smoothest experience), then restart the site. Confirm with `php -v` in the Site Shell.
+
+> **Upgrading from an older nightly?** If you previously ran `wp core update --version=nightly` for the 6.9 pre-release, you can drop back to the stable channel: `wp core update` will move you onto the 7.x stable release. Beta Tester is no longer needed and can be deactivated.
 
 Then install these plugins (Plugins → Add New → search by slug):
 
@@ -241,7 +242,7 @@ wp-backend: node /Users/.../app/wp-backend-mcp/server.js - ✓ Connected
 Open a new chat in the project. Type `/mcp`. You should see:
 
 - `wp-backend` listed
-- 45+ tools under it (`discover_env`, `register_cpt`, `create_post`, `execute_ability`, etc.)
+- 48 tools under it (`discover_env`, `register_cpt`, `create_post`, `execute_ability`, etc.)
 
 ---
 
@@ -374,10 +375,10 @@ Or, from Claude Code: `mcp__wp-backend__update_option { name: 'wpai_feature_meta
 
 ## Updating the MU-plugin after `git pull`
 
-Pulling a new version of this repo updates `mu-plugin/wp-backend-mcp.php` in the repo, **but not** the deployed copy under `wp-content/mu-plugins/`. After every pull that touches the mu-plugin, re-copy:
+Pulling a new version of this repo updates `mu-plugins/wp-backend-mcp.php` in the repo, **but not** the deployed copy under `wp-content/mu-plugins/`. After every pull that touches the mu-plugin, re-copy:
 
 ```bash
-cp "$HOME/Local Sites/<sitename>/app/wp-backend-mcp/mu-plugin/wp-backend-mcp.php" \
+cp "$HOME/Local Sites/<sitename>/app/wp-backend-mcp/mu-plugins/wp-backend-mcp.php" \
    "$HOME/Local Sites/<sitename>/app/public/wp-content/mu-plugins/wp-backend-mcp.php"
 ```
 
@@ -387,5 +388,5 @@ If your team commits the deployed copy into the WP repo (recommended), this beco
 
 ## Where to go next
 
-- **Architecture, tool catalogue (45 tools)** → [README.md](README.md)
+- **Architecture, tool catalogue (48 tools)** → [README.md](README.md)
 - **Open an issue / PR** if you find a bug or want a new tool
