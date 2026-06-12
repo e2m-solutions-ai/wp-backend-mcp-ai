@@ -66,7 +66,7 @@ Then install these plugins (Plugins → Add New → search by slug):
 2. **AI Provider for Anthropic** (slug: `ai-provider-for-anthropic`) **OR** **AI Provider for Google** (slug: `ai-provider-for-google`)
    - Activate **only one** provider plugin per site. With multiple active, the AI client auto-selects one — and if its key is empty/depleted, every ability call fails (Anthropic returns `400 credit balance too low`; Gemini returns `400 API key not valid`). To switch providers, deactivate the old plugin first.
    - **Heads-up about Gemini models**: the AI plugin's default preferred model is `gemini-3-flash-preview`, which is **unstable** — `ai/meta-description` in particular times out at the 30s cURL ceiling. If you must use Gemini, pin each affected feature to `gemini-2.5-flash` (see "Pinning a stable model" in Troubleshooting).
-3. **(Optional) E2M Custom Abilities** — drop the plugin folder under `~/Local Sites/<sitename>/app/public/wp-content/plugins/e2m-custom-abilities/` and activate it. Registers `e2m/french-translation` and adds save_post hooks for `team_member` and `project` CPTs that auto-populate Short Bio / SEO Description / French Text fields.
+3. **(Optional) E2M Custom Abilities** — https://github.com/e2m-solutions-ai/e2m-custom-ability drop the plugin folder under `~/Local Sites/<sitename>/app/public/wp-content/plugins/e2m-custom-abilities/` and activate it. Registers `e2m/french-translation` and adds save_post hooks for `team_member` and `project` CPTs that auto-populate Short Bio / SEO Description / French Text fields.
 
 ### [AI profile only] Connect a provider
 
@@ -89,7 +89,7 @@ In **Settings → AI → Features**, toggle on the abilities you'll use:
 
 Each toggle exposes that ability at `/wp-json/wp-abilities/v1/abilities/<name>/run` and to the MCP `execute_ability` tool.
 
-### Claude assets (agents + skills) Find the repo here, https://github.com/kajale2m/wp-backend-claude/
+### Claude assets (agents + skills) Find the repo here, https://github.com/e2m-solutions-ai/wp-backend-claude
 
 For Claude Code to behave as a WP backend specialist, drop the `wp-backend` agent and skill into one of:
 
